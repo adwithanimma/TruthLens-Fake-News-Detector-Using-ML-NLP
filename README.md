@@ -69,11 +69,25 @@ python app.py                          # http://127.0.0.1:5000
 python app.py --port 8080 --debug
 ```
 
-If the port is already taken, TruthLens picks the next free port and prints the
-URL to use. Check that line before opening the browser — a different app on the
-same port will answer `/api/*` with 404. Use the exact `http://127.0.0.1:<port>/`
-URL from the startup log rather than `localhost`, which can resolve to another
-service on IPv6.
+If the port is already served by another process, TruthLens picks the next free
+one and prints the URL to use:
+
+```
+WARNING Port 5000 is already held by another program.
+WARNING TruthLens is starting on port 5001 instead.
+WARNING Open http://127.0.0.1:5001/
+```
+
+Use the port from that line — the page and the API must come from the same port.
+A stale tab pointing at a different port answers `/api/*` with 404, and the
+status pill will read "Wrong port — API not found".
+
+Port availability is resolved by asking the OS which addresses actually have a
+listener, via `psutil`. A `bind()` probe is not sufficient on Windows: binding a
+wildcard address succeeds even when the port is already served, and binding a
+specific address succeeds alongside another process's wildcard bind. A bind
+probe therefore reports a contended port as free, and `localhost` — which may
+resolve to `::1` first — then reaches the other server instead of this one.
 
 ## API
 
@@ -138,9 +152,9 @@ toward REAL, so treat a low confidence score as "inconclusive" rather than a ver
 python -m pytest tests -q
 ```
 
-32 tests covering preprocessing, extraction parsing and error paths, API status
-codes, input validation, and probability consistency. The suite skips itself if no
-trained model is present.
+45 tests covering preprocessing, extraction parsing and error paths, API status
+codes, input validation, probability consistency, static asset integrity, and
+port-conflict detection. The suite skips itself if no trained model is present.
 
 `experiments/check_render.py` is a separate live check: it replays the frontend's
 percentage math against a running server and fails if any displayed value exceeds
@@ -148,7 +162,7 @@ percentage math against a running server and fails if any displayed value exceed
 
 ```bash
 python app.py &
-python experiments/check_render.py
+python experiments/check_render.py http://localhost:5000   # or whatever port it printed
 ```
 
 Static assets are served with a cache-busting `?v=` parameter derived from the

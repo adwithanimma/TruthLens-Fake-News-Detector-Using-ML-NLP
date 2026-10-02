@@ -1,12 +1,26 @@
 """Mirror the frontend render math in static/js/app.js against live API responses.
 
 If these drift from the JS, the on-screen percentages go wrong the same way the
-old double-multiply bug did. Run with the server on port 5000.
+old double-multiply bug did.
+
+Point it at whichever port the server actually started on:
+
+    python app.py
+    python experiments/check_render.py                       # defaults to 5000
+    python experiments/check_render.py http://localhost:5001
+    TRUTHLENS_URL=http://127.0.0.1:5001 python experiments/check_render.py
 """
+
+import os
+import sys
 
 import requests
 
-B = "http://127.0.0.1:5000"
+B = (
+        sys.argv[1]
+        if len(sys.argv) > 1
+        else os.environ.get("TRUTHLENS_URL", "http://127.0.0.1:5000")
+    ).rstrip("/")
 
 
 def pct(value):
@@ -37,6 +51,13 @@ TEXTS = {
 }
 
 failures = []
+
+try:
+    requests.get(B + "/api/health", timeout=5).raise_for_status()
+except requests.RequestException as exc:
+    print(f"Cannot reach {B}: {exc}")
+    print("Start the server with `python app.py` and use the port it reports.")
+    raise SystemExit(2)
 
 for name, text in TEXTS.items():
     r = requests.post(B + "/api/predict", json={"text": text}, timeout=20)

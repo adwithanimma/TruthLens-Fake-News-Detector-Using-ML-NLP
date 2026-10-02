@@ -201,14 +201,61 @@ def analyze_url():
     )
 
 
+def _listening_on(port: int) -> list[str]:
+    """Local addresses with a TCP listener on `port`, per the OS.
+
+    Probing with bind() is not reliable for this. On Windows a wildcard bind
+    succeeds even when the port is already served, and a specific-address bind
+    succeeds alongside another process's wildcard bind - so the port looks
+    available while a different server already answers on it. Asking the OS
+    what is actually listening is the only dependable answer, and it catches
+    the IPv6 case that matters here: a browser resolving "localhost" may pick
+    ::1 first, so a server holding only the IPv6 wildcard would swallow every
+    /api request and answer 404.
+    """
+    try:
+        import psutil
+    except ImportError:
+        log.warning("psutil is not installed; falling back to a bind probe.")
+        return []
+
+    found: list[str] = []
+    try:
+        for conn in psutil.net_connections(kind="tcp"):
+            if conn.status != psutil.CONN_LISTEN or not conn.laddr:
+                continue
+            if conn.laddr.port == port:
+                found.append(str(conn.laddr.ip))
+    except (psutil.AccessDenied, PermissionError, OSError) as exc:
+        log.warning("Could not enumerate listening ports: %s", exc)
+        return []
+    return found
+
+
 def _port_is_free(port: int, host: str = "127.0.0.1") -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
+    """True when nothing is serving `port` on any local address."""
+    addresses = _listening_on(port)
+    if addresses:
+        return False
+
+    # No psutil, or the enumeration came back empty: fall back to a bind
+    # probe on the address we will actually use.
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.bind((host, port))
-        except OSError:
-            return False
+    except OSError:
+        return False
     return True
+
+
+def _resolve_port(preferred: int, host: str = "127.0.0.1", span: int = 20) -> int:
+    """Return `preferred` if usable, else the next free port after it."""
+    if _port_is_free(preferred, host):
+        return preferred
+    for candidate in range(preferred + 1, preferred + span + 1):
+        if _port_is_free(candidate, host):
+            return candidate
+    return -1
 
 
 def main() -> None:
@@ -219,23 +266,18 @@ def main() -> None:
     args = parser.parse_args()
 
     port = args.port
-    if not args.debug and not _port_is_free(port, args.host):
-        chosen = None
-        for candidate in range(port + 1, port + 21):
-            if _port_is_free(candidate, args.host):
-                chosen = candidate
-                break
-        if chosen is None:
+    if not args.debug and not _port_is_free(port):
+        chosen = _resolve_port(port)
+        if chosen < 0:
             log.error("Port %d is in use and no free port was found nearby.", port)
             raise SystemExit(1)
-        log.warning("Port %d is already in use by another program.", port)
+        log.warning("Port %d is already held by another program.", port)
         log.warning("TruthLens is starting on port %d instead.", chosen)
-        log.warning("Open http://%s:%d/ - do not use the busy port.", args.host, chosen)
+        log.warning("Open http://%s:%d/", args.host, chosen)
         port = chosen
+    else:
+        log.info("TruthLens is starting on http://%s:%d/", args.host, port)
 
-    # Bind IPv6 too when possible: some browsers resolve "localhost" to ::1
-    # first, and an IPv4-only bind makes that fall through to a different
-    # server on the same port, which answers 404 for every /api call.
     app.run(host=args.host, port=port, debug=args.debug)
 
 
