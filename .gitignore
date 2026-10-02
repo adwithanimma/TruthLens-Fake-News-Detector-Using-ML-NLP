@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.log
+.DS_Store
+
+# LIAR dataset (Wang, ACL 2017) is distributed for research use only and is not
+# redistributed here. Download it to retrain:
+#   https://www.cs.ucsb.edu/~william/data/liar_dataset.zip
+data/liar_train.tsv
+data/liar_valid.tsv
+data/liar_test.tsv
+data/LIAR_README.txt
+data/news_dataset.csv

@@ -1,0 +1,27 @@
+{
+  "variant": "logreg",
+  "trained_at_samples": 12764,
+  "label_map": {
+    "FAKE": 0,
+    "REAL": 1
+  },
+  "metrics": {
+    "accuracy": 0.6255,
+    "precision_fake": 0.6024,
+    "recall_fake": 0.4418,
+    "precision_real": 0.6366,
+    "recall_real": 0.7703,
+    "f1": 0.6971,
+    "confusion_matrix": [
+      [
+        497,
+        628
+      ],
+      [
+        328,
+        1100
+      ]
+    ],
+    "report": "              precision    recall  f1-score   support\n\n        FAKE       0.60      0.44      0.51      1125\n        REAL       0.64      0.77      0.70      1428\n\n    accuracy                           0.63      2553\n   macro avg       0.62      0.61      0.60      2553\nweighted avg       0.62      0.63      0.61      2553\n"
+  }
+}
