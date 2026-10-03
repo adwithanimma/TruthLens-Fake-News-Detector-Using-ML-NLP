@@ -1,12 +1,3 @@
-"""TruthLens CLI: build the dataset, train the model, or run a prediction.
-
-Usage:
-    python train.py              # train with the default logistic regression pipeline
-    python train.py --variant svm
-    python train.py --predict "some article text"
-    python train.py --url https://example.com/article
-"""
-
 from __future__ import annotations
 
 import argparse
