@@ -1,10 +1,3 @@
-"""Model training and inference for TruthLens.
-
-Pipeline: TF-IDF (word + char n-grams) -> LogisticRegression, wrapped in a
-calibrated confidence score. The fitted pipeline is persisted with joblib and
-loaded lazily at API start-up.
-"""
-
 from __future__ import annotations
 
 import json
@@ -40,21 +33,8 @@ METRICS_PATH = MODEL_DIR / "metrics.json"
 
 RANDOM_STATE = 42
 
-
 def build_pipeline(variant: str = "logreg") -> Pipeline:
-    """Construct the TF-IDF + classifier pipeline.
-
-    Defaults were chosen by the grid in experiments/sweep.py: word unigrams +
-    bigrams with min_df=2 and a plain C=1 LogisticRegression. That combination
-    gave the best F1 (0.697) among near-tied accuracy runs while still exposing
-    real probabilities, which the confidence score depends on. The char_wb
-    branch is available for variants that want sub-word robustness.
-
-    variant:
-        logreg  - LogisticRegression (default, calibrated probabilities)
-        svm     - LinearSVC wrapped in CalibratedClassifierCV
-        nb      - ComplementNB (lightweight baseline)
-    """
+    
     features = FeatureUnion(
         [
             (
@@ -123,7 +103,6 @@ def train(variant: str = "logreg", holdout: bool = True) -> dict[str, Any]:
     else:
         metrics = {"note": "trained on full dataset, no holdout evaluation"}
 
-    # Refit on everything so the shipped model sees all labelled data.
     final_model = build_pipeline(variant)
     final_model.fit(texts, labels)
 
@@ -138,7 +117,6 @@ def train(variant: str = "logreg", holdout: bool = True) -> dict[str, Any]:
     }
     METRICS_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return payload
-
 
 @dataclass
 class Prediction:
@@ -157,7 +135,6 @@ class Prediction:
             "scores": {"fake": round(self.fake_score, 4), "real": round(self.real_score, 4)},
             "word_count": self.word_count,
         }
-
 
 class Predictor:
     """Lazy-loading wrapper around the persisted pipeline."""
@@ -209,16 +186,13 @@ class Predictor:
             word_count=words,
         )
 
-
 _predictor: Predictor | None = None
-
 
 def get_predictor() -> Predictor:
     global _predictor
     if _predictor is None:
         _predictor = Predictor()
     return _predictor
-
 
 __all__ = [
     "Predictor",

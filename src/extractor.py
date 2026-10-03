@@ -1,9 +1,3 @@
-"""URL-based article extraction.
-
-Fetches a news URL, strips boilerplate, and returns the readable article text
-plus metadata (title, source domain, image, published date when available).
-"""
-
 from __future__ import annotations
 
 import re
@@ -20,13 +14,11 @@ USER_AGENT = (
 
 DEFAULT_TIMEOUT = 10
 
-# Tags whose text is never article content.
 _DROP_TAGS = (
     "script", "style", "noscript", "iframe", "form", "nav", "footer", "header",
     "aside", "svg", "canvas", "button", "figure",
 )
 
-# Ordered by how strongly they signal the real article body.
 _CONTENT_SELECTORS = (
     "article",
     "main",

@@ -1,5 +1,3 @@
-"""Tuning sweep for the TruthLens pipeline. Run: python experiments/sweep.py"""
-
 from __future__ import annotations
 
 import sys
@@ -16,8 +14,6 @@ from src.model import build_pipeline  # noqa: E402
 from src.text_utils import preprocess  # noqa: E402
 
 SEED = 42
-
-
 def main() -> None:
     samples = load_samples()
     texts = np.array([s.text for s in samples], dtype=object)
@@ -35,7 +31,6 @@ def main() -> None:
         f1 = f1_score(y_te, pred)
         print(f"{variant:7s} acc={acc:.4f} f1={f1:.4f}")
 
-    # Sanity check: speaker/subject metadata alone, WITHOUT the label string.
     meta = np.array(
         [f"{s.subject} {s.speaker}" for s in samples], dtype=object
     )

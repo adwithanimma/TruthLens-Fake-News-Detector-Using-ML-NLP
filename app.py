@@ -1,13 +1,3 @@
-"""TruthLens Flask REST API.
-
-Endpoints:
-    GET  /                web interface
-    GET  /api/health      service + model status
-    GET  /api/model-info  training variant and evaluation metrics
-    POST /api/predict     classify article text  {"text": "..."}
-    POST /api/analyze-url classify a news URL     {"url": "..."}
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -36,13 +26,6 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 
 def _asset_version() -> str:
-    """Timestamp of the newest static/template file, for cache-busting.
-
-    A browser that keeps a previously-loaded script in memory keeps running the
-    old code after a file is edited. Tagging asset URLs with this value changes
-    the URL whenever anything under static/ changes, so a normal reload always
-    pulls the current file.
-    """
     candidates = [
         p
         for p in ROOT.rglob("*")
@@ -53,9 +36,7 @@ def _asset_version() -> str:
     newest = max((p.stat().st_mtime for p in candidates), default=0.0)
     return str(int(newest))
 
-
 app.jinja_env.globals["asset_version"] = _asset_version
-
 
 class ApiError(Exception):
     def __init__(self, message: str, status: int = 400, **extra: Any):
@@ -64,30 +45,25 @@ class ApiError(Exception):
         self.status = status
         self.extra = extra
 
-
 @app.errorhandler(ApiError)
 def _handle_api_error(exc: ApiError):
     payload = {"error": exc.message, **exc.extra}
     return jsonify(payload), exc.status
 
-
 @app.errorhandler(404)
 def _handle_404(_):
     return jsonify({"error": "Not found."}), 404
-
 
 @app.errorhandler(500)
 def _handle_500(exc):
     log.exception("Unhandled error: %s", exc)
     return jsonify({"error": "Internal server error."}), 500
 
-
 def _json_body() -> dict[str, Any]:
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         raise ApiError("Request body must be a JSON object.")
     return data
-
 
 def _validate_text(raw: str) -> str:
     text = (raw or "").strip()
@@ -104,7 +80,6 @@ def _validate_text(raw: str) -> str:
         )
     return text
 
-
 def _predict_or_error(text: str) -> dict[str, Any]:
     try:
         return get_predictor().predict(text).to_dict()
@@ -116,11 +91,9 @@ def _predict_or_error(text: str) -> dict[str, Any]:
         log.exception("Prediction failed")
         raise ApiError(f"Prediction failed: {exc}", status=500) from exc
 
-
 @app.get("/")
 def index():
     return render_template("index.html")
-
 
 @app.get("/api/health")
 def health():
@@ -141,7 +114,6 @@ def health():
         }
     )
 
-
 @app.get("/api/model-info")
 def model_info():
     predictor = get_predictor()
@@ -156,7 +128,6 @@ def model_info():
         }
     )
 
-
 @app.post("/api/predict")
 def predict():
     text = _validate_text(_json_body().get("text", ""))
@@ -169,7 +140,6 @@ def predict():
             "result": result,
         }
     )
-
 
 @app.post("/api/analyze-url")
 def analyze_url():
@@ -202,17 +172,6 @@ def analyze_url():
 
 
 def _listening_on(port: int) -> list[str]:
-    """Local addresses with a TCP listener on `port`, per the OS.
-
-    Probing with bind() is not reliable for this. On Windows a wildcard bind
-    succeeds even when the port is already served, and a specific-address bind
-    succeeds alongside another process's wildcard bind - so the port looks
-    available while a different server already answers on it. Asking the OS
-    what is actually listening is the only dependable answer, and it catches
-    the IPv6 case that matters here: a browser resolving "localhost" may pick
-    ::1 first, so a server holding only the IPv6 wildcard would swallow every
-    /api request and answer 404.
-    """
     try:
         import psutil
     except ImportError:
@@ -231,15 +190,12 @@ def _listening_on(port: int) -> list[str]:
         return []
     return found
 
-
 def _port_is_free(port: int, host: str = "127.0.0.1") -> bool:
     """True when nothing is serving `port` on any local address."""
     addresses = _listening_on(port)
     if addresses:
         return False
 
-    # No psutil, or the enumeration came back empty: fall back to a bind
-    # probe on the address we will actually use.
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.bind((host, port))
@@ -249,7 +205,6 @@ def _port_is_free(port: int, host: str = "127.0.0.1") -> bool:
 
 
 def _resolve_port(preferred: int, host: str = "127.0.0.1", span: int = 20) -> int:
-    """Return `preferred` if usable, else the next free port after it."""
     if _port_is_free(preferred, host):
         return preferred
     for candidate in range(preferred + 1, preferred + span + 1):
@@ -279,7 +234,6 @@ def main() -> None:
         log.info("TruthLens is starting on http://%s:%d/", args.host, port)
 
     app.run(host=args.host, port=port, debug=args.debug)
-
 
 if __name__ == "__main__":
     main()
